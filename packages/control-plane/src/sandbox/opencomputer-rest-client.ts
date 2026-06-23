@@ -124,6 +124,7 @@ const TIMEOUT_SECRET_STORE_MS = 30_000;
 const SYSTEM_CA_BUNDLE = "/etc/ssl/certs/ca-certificates.crt";
 const OPENSANDBOX_PROXY_CA = "/usr/local/share/ca-certificates/opensandbox-proxy.crt";
 const PYTHON_VENV = "/home/sandbox/.venv";
+const USER_BIN = "/home/sandbox/.local/bin";
 const RUNTIME_CA_EXPORTS =
   `SSL_CERT_FILE=${SYSTEM_CA_BUNDLE} ` +
   `CURL_CA_BUNDLE=${SYSTEM_CA_BUNDLE} ` +
@@ -143,9 +144,10 @@ const RUNTIME_ENV_EXPORTS =
   "XDG_CONFIG_HOME=/home/sandbox/.config " +
   "PYTHONPATH=/app " +
   "NODE_PATH=/home/sandbox/.npm-global/lib/node_modules:/usr/lib/node_modules " +
+  `OPENINSPECT_BIN_INSTALL_DIR=${USER_BIN} ` +
   `NO_PROXY=${LOCAL_NO_PROXY} ` +
   `no_proxy=${LOCAL_NO_PROXY} ` +
-  `PATH=${PYTHON_VENV}/bin:/home/sandbox/.npm-global/bin:/home/sandbox/.local/bin:/home/sandbox/.local/share/pnpm:/usr/local/bin:/usr/bin:/bin ` +
+  `PATH=${PYTHON_VENV}/bin:/home/sandbox/.npm-global/bin:${USER_BIN}:/home/sandbox/.local/share/pnpm:/usr/local/bin:/usr/bin:/bin ` +
   RUNTIME_CA_EXPORTS;
 const RUNTIME_CA_BOOTSTRAP =
   `[ -f ${OPENSANDBOX_PROXY_CA} ] && sudo update-ca-certificates >/tmp/openinspect-update-ca.log 2>&1 || true; ` +
