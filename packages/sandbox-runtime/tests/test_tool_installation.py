@@ -41,7 +41,7 @@ def _patch_paths(
             .replace("/app/sandbox_runtime/skills", str(skills))
             .replace("/app/sandbox_runtime/bin", str(bin_src))
             .replace("/app/opencode-deps", str(deps_cache))
-            .replace("/usr/local/bin", str(bin_dest))
+            .replace("/home/sandbox/.local/bin", str(bin_dest))
         )
         yield
 
@@ -254,7 +254,7 @@ class TestInstallBinScripts:
     """Cases for _install_bin_scripts() standalone CLI installation."""
 
     def test_scripts_installed_to_bin(self, tmp_path):
-        """JS scripts in bin/ should be copied to /usr/local/bin/ without .js extension."""
+        """JS scripts in bin/ should be copied to user bin without .js extension."""
         sup = _make_supervisor()
 
         src = tmp_path / "app" / "sandbox_runtime" / "bin"

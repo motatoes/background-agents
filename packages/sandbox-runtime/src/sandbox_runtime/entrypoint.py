@@ -565,7 +565,7 @@ class SandboxSupervisor:
         self._install_bin_scripts()
 
     def _install_bin_scripts(self) -> None:
-        """Install standalone CLI scripts into /usr/local/bin.
+        """Install standalone CLI scripts into the sandbox user's local bin.
 
         Scripts in bin/ are standalone CLIs (not OpenCode tool plugins) and must
         NOT be placed in .opencode/tool/ — OpenCode would import() them during
@@ -577,7 +577,9 @@ class SandboxSupervisor:
 
         for script in bin_dir.iterdir():
             if script.is_file() and script.suffix == ".js":
-                dest = Path("/usr/local/bin") / script.stem
+                user_bin = Path("/home/sandbox/.local/bin")
+                user_bin.mkdir(parents=True, exist_ok=True)
+                dest = user_bin / script.stem
                 shutil.copy(script, dest)
                 dest.chmod(0o755)
                 self.log.info("bin.installed", script=script.stem)
