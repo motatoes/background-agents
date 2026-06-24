@@ -78,14 +78,14 @@ describe("isModalSandboxBackend", () => {
 });
 
 describe("supportsRepoImageBackend", () => {
-  it("returns true for modal and vercel", () => {
+  it("returns true for modal, vercel, and opencomputer", () => {
     expect(supportsRepoImageBackend("modal")).toBe(true);
     expect(supportsRepoImageBackend("vercel")).toBe(true);
+    expect(supportsRepoImageBackend("opencomputer")).toBe(true);
     expect(supportsRepoImageBackend(undefined)).toBe(true);
   });
 
-  it("returns false for daytona and opencomputer", () => {
+  it("returns false for daytona", () => {
     expect(supportsRepoImageBackend("daytona")).toBe(false);
-    expect(supportsRepoImageBackend("opencomputer")).toBe(false);
   });
 });

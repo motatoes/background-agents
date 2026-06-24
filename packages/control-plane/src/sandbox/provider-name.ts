@@ -37,5 +37,5 @@ export function isModalSandboxBackend(value: string | undefined): boolean {
 
 export function supportsRepoImageBackend(value: string | undefined): boolean {
   const backend = resolveSandboxBackendName(value);
-  return backend === "modal" || backend === "vercel";
+  return backend === "modal" || backend === "vercel" || backend === "opencomputer";
 }

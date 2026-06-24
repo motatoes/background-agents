@@ -31,11 +31,14 @@ export interface OpenComputerRestConfig {
 
 export interface OpenComputerApiPaths {
   sandboxes: string;
+  sandboxFromCheckpoint: string;
   sandbox: string;
   wake: string;
   hibernate: string;
   tunnel: string;
   exec: string;
+  checkpoints: string;
+  checkpoint: string;
   secretStores: string;
   secretStore: string;
   secret: string;
@@ -60,6 +63,30 @@ export interface OpenComputerCreateSandboxParams {
   secretStore?: string;
   projectId?: string;
   target?: string;
+}
+
+export interface OpenComputerForkCheckpointParams {
+  checkpointId: string;
+  name: string;
+  env?: Record<string, string>;
+  labels?: Record<string, string>;
+  timeoutSeconds?: number;
+  secretStore?: string;
+}
+
+export interface OpenComputerCheckpointResponse {
+  id: string;
+  sandboxId: string;
+  orgId?: string;
+  name?: string;
+  status?: string;
+  createdAt?: string;
+}
+
+export interface OpenComputerExecResult {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
 }
 
 export interface OpenComputerSecretStoreResponse {
@@ -104,11 +131,14 @@ export class OpenComputerApiError extends Error {
 
 const DEFAULT_PATHS: OpenComputerApiPaths = {
   sandboxes: "/sandboxes",
+  sandboxFromCheckpoint: "/sandboxes/from-checkpoint/:checkpointId",
   sandbox: "/sandboxes/:id",
   wake: "/sandboxes/:id/wake",
   hibernate: "/sandboxes/:id/hibernate",
   tunnel: "/sandboxes/:id/preview",
   exec: "/sandboxes/:id/exec/run",
+  checkpoints: "/sandboxes/:id/checkpoints",
+  checkpoint: "/sandboxes/:id/checkpoints/:checkpointId",
   secretStores: "/secret-stores",
   secretStore: "/secret-stores/:id",
   secret: "/secret-stores/:id/secrets/:name",
@@ -120,6 +150,8 @@ const TIMEOUT_HIBERNATE_MS = 30_000;
 const TIMEOUT_GET_MS = 15_000;
 const TIMEOUT_TUNNEL_MS = 15_000;
 const TIMEOUT_EXEC_MS = 15_000;
+const TIMEOUT_BUILD_EXEC_MS = 30 * 60_000;
+const TIMEOUT_CHECKPOINT_MS = 5 * 60_000;
 const TIMEOUT_SECRET_STORE_MS = 30_000;
 const SYSTEM_CA_BUNDLE = "/etc/ssl/certs/ca-certificates.crt";
 const OPENSANDBOX_PROXY_CA = "/usr/local/share/ca-certificates/opensandbox-proxy.crt";
@@ -205,6 +237,29 @@ export class OpenComputerRestClient {
     }
   }
 
+  async forkFromCheckpoint(
+    params: OpenComputerForkCheckpointParams
+  ): Promise<OpenComputerSandboxResponse> {
+    const body: Record<string, unknown> = {
+      envs: params.env,
+      metadata: params.labels,
+    };
+    if (params.timeoutSeconds !== undefined) {
+      body.timeout = params.timeoutSeconds;
+    }
+    if (params.secretStore) {
+      body.secretStore = params.secretStore;
+    }
+
+    const response = await this.request<OpenComputerSandboxResponse>(
+      "POST",
+      this.expandPath(this.paths.sandboxFromCheckpoint, { checkpointId: params.checkpointId }),
+      TIMEOUT_CREATE_MS,
+      body
+    );
+    return this.normalizeSandbox(response);
+  }
+
   async createSecretStore(
     params: OpenComputerCreateSecretStoreParams
   ): Promise<OpenComputerSecretStoreResponse> {
@@ -268,15 +323,54 @@ export class OpenComputerRestClient {
     );
   }
 
-  async startRuntime(id: string): Promise<void> {
+  async startRuntime(id: string, extraEnv: Record<string, string> = {}): Promise<void> {
+    const exports = this.shellExportEnv(extraEnv);
     await this.request<void>("POST", this.expandPath(this.paths.exec, { id }), TIMEOUT_EXEC_MS, {
       cmd: "sh",
       args: [
         "-c",
-        `${RUNTIME_HOSTS_BOOTSTRAP}; ${RUNTIME_CA_BOOTSTRAP}; ${RUNTIME_LOG_BOOTSTRAP}; ${RUNTIME_ENV_EXPORTS}; nohup python3 -m sandbox_runtime.entrypoint >>${RUNTIME_LOG_PATH} 2>&1 & echo $!`,
+        `${RUNTIME_HOSTS_BOOTSTRAP}; ${RUNTIME_CA_BOOTSTRAP}; ${RUNTIME_LOG_BOOTSTRAP}; ${RUNTIME_ENV_EXPORTS}; ${exports}nohup python3 -m sandbox_runtime.entrypoint >>${RUNTIME_LOG_PATH} 2>&1 & echo $!`,
       ],
       timeout: 10,
     });
+  }
+
+  async runRuntimeForeground(
+    id: string,
+    timeoutSeconds: number,
+    extraEnv: Record<string, string> = {}
+  ): Promise<OpenComputerExecResult> {
+    const exports = this.shellExportEnv(extraEnv);
+    return await this.request<OpenComputerExecResult>(
+      "POST",
+      this.expandPath(this.paths.exec, { id }),
+      TIMEOUT_BUILD_EXEC_MS,
+      {
+        cmd: "sh",
+        args: [
+          "-c",
+          `${RUNTIME_HOSTS_BOOTSTRAP}; ${RUNTIME_CA_BOOTSTRAP}; ${RUNTIME_LOG_BOOTSTRAP}; ${RUNTIME_ENV_EXPORTS}; ${exports} python3 -m sandbox_runtime.entrypoint >>${RUNTIME_LOG_PATH} 2>&1`,
+        ],
+        timeout: timeoutSeconds,
+      }
+    );
+  }
+
+  async createCheckpoint(id: string, name: string): Promise<OpenComputerCheckpointResponse> {
+    return await this.request<OpenComputerCheckpointResponse>(
+      "POST",
+      this.expandPath(this.paths.checkpoints, { id }),
+      TIMEOUT_CHECKPOINT_MS,
+      { name }
+    );
+  }
+
+  async deleteCheckpoint(id: string, checkpointId: string): Promise<void> {
+    await this.request<void>(
+      "DELETE",
+      this.expandPath(this.paths.checkpoint, { id, checkpointId }),
+      TIMEOUT_CHECKPOINT_MS
+    );
   }
 
   async getTunnelUrl(id: string, port: number): Promise<OpenComputerTunnelResponse> {
@@ -346,6 +440,16 @@ export class OpenComputerRestClient {
       expanded = expanded.replace(`:${key}`, encodeURIComponent(value));
     }
     return expanded;
+  }
+
+  private shellExportEnv(env: Record<string, string>): string {
+    const entries = Object.entries(env).filter(([, value]) => value.length > 0);
+    if (entries.length === 0) return "";
+    return `${entries.map(([key, value]) => `${key}=${this.shellQuote(value)}`).join(" ")} `;
+  }
+
+  private shellQuote(value: string): string {
+    return `'${value.replace(/'/g, `'\\''`)}'`;
   }
 
   private normalizeSandbox(response: OpenComputerSandboxResponse): OpenComputerSandboxResponse {
