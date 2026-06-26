@@ -10,6 +10,11 @@ import { createLogger } from "../logger";
 
 const log = createLogger("opencomputer-rest-client");
 
+export const OPENCOMPUTER_CHECKPOINT_RETENTION_POLICY = {
+  mode: "delete_oldest",
+  maxCount: 10,
+} as const;
+
 export interface OpenComputerRestConfig {
   /** OpenComputer API base URL, e.g. https://api.opencomputer.dev */
   apiUrl: string;
@@ -81,6 +86,12 @@ export interface OpenComputerCheckpointResponse {
   name?: string;
   status?: string;
   createdAt?: string;
+}
+
+export type OpenComputerCheckpointRetentionPolicy = typeof OPENCOMPUTER_CHECKPOINT_RETENTION_POLICY;
+
+export interface OpenComputerCreateCheckpointOptions {
+  retentionPolicy?: OpenComputerCheckpointRetentionPolicy;
 }
 
 export interface OpenComputerExecResult {
@@ -356,12 +367,19 @@ export class OpenComputerRestClient {
     );
   }
 
-  async createCheckpoint(id: string, name: string): Promise<OpenComputerCheckpointResponse> {
+  async createCheckpoint(
+    id: string,
+    name: string,
+    options: OpenComputerCreateCheckpointOptions = {}
+  ): Promise<OpenComputerCheckpointResponse> {
     return await this.request<OpenComputerCheckpointResponse>(
       "POST",
       this.expandPath(this.paths.checkpoints, { id }),
       TIMEOUT_CHECKPOINT_MS,
-      { name }
+      {
+        name,
+        retentionPolicy: options.retentionPolicy ?? OPENCOMPUTER_CHECKPOINT_RETENTION_POLICY,
+      }
     );
   }
 
