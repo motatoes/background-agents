@@ -42,7 +42,7 @@ import {
 
 const log = createLogger("opencomputer-provider");
 const OPENCOMPUTER_SECRET_STORE_EGRESS_ALLOWLIST = ["*"];
-const OPENCOMPUTER_DEFAULT_SANDBOX_TIMEOUT_SECONDS = 120;
+const OPENCOMPUTER_PROVIDER_TIMEOUT_FALLBACK_SECONDS = 10 * 60;
 const REPO_IMAGE_CALLBACK_ENV_KEYS = [
   "OI_REPO_IMAGE_PROVIDER_SESSION_ID",
   "OI_REPO_IMAGE_BUILD_ID",
@@ -82,8 +82,8 @@ export class OpenComputerSandboxProvider implements SandboxProvider {
     supportsSnapshots: true,
     supportsRestore: true,
     supportsWarm: false,
-    supportsPersistentResume: false,
-    supportsExplicitStop: false,
+    supportsPersistentResume: true,
+    supportsExplicitStop: true,
   };
 
   constructor(
@@ -268,6 +268,10 @@ export class OpenComputerSandboxProvider implements SandboxProvider {
       }
 
       if (wokeSandbox) {
+        await this.client.setSandboxTimeout(
+          config.providerObjectId,
+          resolveOpenComputerTimeoutSeconds(config.timeoutSeconds)
+        );
         await this.client.startRuntime(config.providerObjectId);
       }
 
@@ -642,7 +646,7 @@ export class OpenComputerSandboxProvider implements SandboxProvider {
 }
 
 function resolveOpenComputerTimeoutSeconds(timeoutSeconds: number | undefined): number {
-  return timeoutSeconds ?? OPENCOMPUTER_DEFAULT_SANDBOX_TIMEOUT_SECONDS;
+  return timeoutSeconds ?? OPENCOMPUTER_PROVIDER_TIMEOUT_FALLBACK_SECONDS;
 }
 
 export function createOpenComputerProvider(

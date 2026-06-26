@@ -94,8 +94,8 @@ describe("OpenComputerSandboxProvider", () => {
       supportsSnapshots: true,
       supportsRestore: true,
       supportsWarm: false,
-      supportsPersistentResume: false,
-      supportsExplicitStop: false,
+      supportsPersistentResume: true,
+      supportsExplicitStop: true,
     });
   });
 
@@ -149,7 +149,7 @@ describe("OpenComputerSandboxProvider", () => {
       name: "openinspect-session-1",
       egressAllowlist: ["*"],
     });
-    expect(client.setSandboxTimeout).toHaveBeenCalledWith("oc-sandbox-1", 120);
+    expect(client.setSandboxTimeout).toHaveBeenCalledWith("oc-sandbox-1", 600);
     expect(client.setSecret).toHaveBeenCalledWith({
       storeId: "secret-store-1",
       name: "ANTHROPIC_API_KEY",
@@ -251,7 +251,7 @@ describe("OpenComputerSandboxProvider", () => {
         }),
       })
     );
-    expect(client.setSandboxTimeout).toHaveBeenCalledWith("oc-fork-1", 120);
+    expect(client.setSandboxTimeout).toHaveBeenCalledWith("oc-fork-1", 600);
     expect(client.startRuntime).toHaveBeenCalledWith("oc-fork-1");
   });
 
@@ -274,7 +274,7 @@ describe("OpenComputerSandboxProvider", () => {
         env: expect.objectContaining({ RESTORED_FROM_SNAPSHOT: "true" }),
       })
     );
-    expect(client.setSandboxTimeout).toHaveBeenCalledWith("oc-fork-1", 120);
+    expect(client.setSandboxTimeout).toHaveBeenCalledWith("oc-fork-1", 600);
     expect(client.startRuntime).toHaveBeenCalledWith("oc-fork-1");
   });
 
@@ -385,6 +385,7 @@ describe("OpenComputerSandboxProvider", () => {
     expect(result).toMatchObject({ success: true, providerObjectId: "oc-sandbox-1" });
     expect(client.getSandbox).toHaveBeenCalledWith("oc-sandbox-1");
     expect(client.wakeSandbox).toHaveBeenCalledWith("oc-sandbox-1");
+    expect(client.setSandboxTimeout).toHaveBeenCalledWith("oc-sandbox-1", 600);
     expect(client.startRuntime).toHaveBeenCalledWith("oc-sandbox-1");
   });
 
