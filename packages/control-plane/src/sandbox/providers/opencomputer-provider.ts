@@ -15,6 +15,7 @@ import { resolveServicePorts, resolveTunnelPorts } from "./port-resolution";
 import { createLogger } from "../../logger";
 import type { SourceControlProviderName } from "../../source-control";
 import {
+  OPENCOMPUTER_CHECKPOINT_KIND,
   OPENCOMPUTER_CHECKPOINT_RETENTION_POLICY,
   OpenComputerApiError,
   OpenComputerNotFoundError,
@@ -207,7 +208,10 @@ export class OpenComputerSandboxProvider implements SandboxProvider {
       const checkpoint = await this.client.createCheckpoint(
         config.providerObjectId,
         this.buildCheckpointName(config.sessionId, config.reason),
-        { retentionPolicy: OPENCOMPUTER_CHECKPOINT_RETENTION_POLICY }
+        {
+          kind: OPENCOMPUTER_CHECKPOINT_KIND,
+          retentionPolicy: OPENCOMPUTER_CHECKPOINT_RETENTION_POLICY,
+        }
       );
 
       if (checkpoint.status && checkpoint.status !== "ready" && checkpoint.status !== "created") {

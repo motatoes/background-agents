@@ -10,9 +10,11 @@ import { createLogger } from "../logger";
 
 const log = createLogger("opencomputer-rest-client");
 
+export const OPENCOMPUTER_CHECKPOINT_KIND = "disk_only" as const;
+
 export const OPENCOMPUTER_CHECKPOINT_RETENTION_POLICY = {
   mode: "delete_oldest",
-  maxCount: 10,
+  maxCount: 30,
 } as const;
 
 export interface OpenComputerRestConfig {
@@ -84,6 +86,7 @@ export interface OpenComputerCheckpointResponse {
   sandboxId: string;
   orgId?: string;
   name?: string;
+  kind?: "full" | "disk_only";
   status?: string;
   createdAt?: string;
 }
@@ -91,6 +94,7 @@ export interface OpenComputerCheckpointResponse {
 export type OpenComputerCheckpointRetentionPolicy = typeof OPENCOMPUTER_CHECKPOINT_RETENTION_POLICY;
 
 export interface OpenComputerCreateCheckpointOptions {
+  kind?: typeof OPENCOMPUTER_CHECKPOINT_KIND;
   retentionPolicy?: OpenComputerCheckpointRetentionPolicy;
 }
 
@@ -378,6 +382,7 @@ export class OpenComputerRestClient {
       TIMEOUT_CHECKPOINT_MS,
       {
         name,
+        kind: options.kind ?? OPENCOMPUTER_CHECKPOINT_KIND,
         retentionPolicy: options.retentionPolicy ?? OPENCOMPUTER_CHECKPOINT_RETENTION_POLICY,
       }
     );

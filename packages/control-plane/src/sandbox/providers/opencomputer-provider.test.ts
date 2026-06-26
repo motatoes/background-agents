@@ -6,7 +6,10 @@ import type {
   OpenComputerRestClient,
   OpenComputerSandboxResponse,
 } from "../opencomputer-rest-client";
-import { OPENCOMPUTER_CHECKPOINT_RETENTION_POLICY } from "../opencomputer-rest-client";
+import {
+  OPENCOMPUTER_CHECKPOINT_KIND,
+  OPENCOMPUTER_CHECKPOINT_RETENTION_POLICY,
+} from "../opencomputer-rest-client";
 import type { CreateSandboxConfig } from "../provider";
 
 function createMockClient(overrides: Partial<OpenComputerRestClient> = {}): OpenComputerRestClient {
@@ -244,7 +247,10 @@ describe("OpenComputerSandboxProvider", () => {
     expect(client.createCheckpoint).toHaveBeenCalledWith(
       "oc-sandbox-1",
       expect.stringContaining("openinspect-session-1-user_stop-"),
-      { retentionPolicy: OPENCOMPUTER_CHECKPOINT_RETENTION_POLICY }
+      {
+        kind: OPENCOMPUTER_CHECKPOINT_KIND,
+        retentionPolicy: OPENCOMPUTER_CHECKPOINT_RETENTION_POLICY,
+      }
     );
   });
 
@@ -266,7 +272,10 @@ describe("OpenComputerSandboxProvider", () => {
     expect(client.createCheckpoint).toHaveBeenCalledWith(
       "oc-sandbox-1",
       expect.stringContaining("openinspect-session-1-execution_complete-"),
-      { retentionPolicy: OPENCOMPUTER_CHECKPOINT_RETENTION_POLICY }
+      {
+        kind: OPENCOMPUTER_CHECKPOINT_KIND,
+        retentionPolicy: OPENCOMPUTER_CHECKPOINT_RETENTION_POLICY,
+      }
     );
   });
 
