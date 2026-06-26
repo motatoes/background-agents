@@ -89,7 +89,7 @@ describe("OpenComputerSandboxProvider", () => {
       supportsRestore: true,
       supportsWarm: false,
       supportsPersistentResume: false,
-      supportsExplicitStop: true,
+      supportsExplicitStop: false,
     });
   });
 
@@ -243,6 +243,27 @@ describe("OpenComputerSandboxProvider", () => {
     expect(client.createCheckpoint).toHaveBeenCalledWith(
       "oc-sandbox-1",
       expect.stringContaining("openinspect-session-1-user_stop-")
+    );
+  });
+
+  it("creates checkpoints for execution-complete snapshots", async () => {
+    const client = createMockClient();
+    const provider = new OpenComputerSandboxProvider(client, {
+      scmProvider: "github",
+      codeServerPasswordSecret: "secret",
+    });
+
+    await expect(
+      provider.takeSnapshot({
+        providerObjectId: "oc-sandbox-1",
+        sessionId: "session-1",
+        reason: "execution_complete",
+      })
+    ).resolves.toEqual({ success: true, imageId: "checkpoint-1" });
+
+    expect(client.createCheckpoint).toHaveBeenCalledWith(
+      "oc-sandbox-1",
+      expect.stringContaining("openinspect-session-1-execution_complete-")
     );
   });
 

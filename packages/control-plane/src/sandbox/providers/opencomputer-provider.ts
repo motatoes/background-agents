@@ -2,7 +2,8 @@
  * OpenComputer sandbox provider.
  *
  * Uses an OpenComputer declarative template that already contains the
- * OpenInspect sandbox runtime. Stop maps to hibernate, and resume maps to wake.
+ * OpenInspect sandbox runtime. Resume maps to wake; idle hibernation is left
+ * to OpenComputer rather than being driven by OpenInspect's lifecycle manager.
  */
 
 import {
@@ -80,7 +81,7 @@ export class OpenComputerSandboxProvider implements SandboxProvider {
     supportsRestore: true,
     supportsWarm: false,
     supportsPersistentResume: false,
-    supportsExplicitStop: true,
+    supportsExplicitStop: false,
   };
 
   constructor(
