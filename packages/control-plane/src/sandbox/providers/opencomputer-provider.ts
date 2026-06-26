@@ -42,7 +42,7 @@ import {
 } from "../provider";
 
 const log = createLogger("opencomputer-provider");
-const OPENCOMPUTER_SECRET_STORE_EGRESS_ALLOWLIST: string[] = [];
+const OPENCOMPUTER_SECRET_STORE_EGRESS_ALLOWLIST = ["*"];
 const REPO_IMAGE_CALLBACK_ENV_KEYS = [
   "OI_REPO_IMAGE_PROVIDER_SESSION_ID",
   "OI_REPO_IMAGE_BUILD_ID",

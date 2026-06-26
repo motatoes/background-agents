@@ -146,7 +146,7 @@ describe("OpenComputerSandboxProvider", () => {
     expect(createCall.env).toHaveProperty("ANTHROPIC_API_KEY", "sk-test");
     expect(client.createSecretStore).toHaveBeenCalledWith({
       name: "openinspect-session-1",
-      egressAllowlist: [],
+      egressAllowlist: ["*"],
     });
     expect(client.setSecret).toHaveBeenCalledWith({
       storeId: "secret-store-1",
