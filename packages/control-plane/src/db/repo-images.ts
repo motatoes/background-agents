@@ -16,6 +16,7 @@ export interface RepoImageBuild {
   repoName: string;
   provider: RepoImageProvider;
   baseBranch: string;
+  providerSecretStoreId?: string | null;
   callbackTokenHash?: string;
   callbackTokenExpiresAt?: number;
 }
@@ -26,6 +27,7 @@ export interface RepoImage {
   repo_name: string;
   provider: RepoImageProvider;
   provider_session_id: string | null;
+  provider_secret_store_id: string | null;
   provider_image_id: string;
   base_sha: string;
   base_branch: string;
@@ -83,13 +85,16 @@ export class RepoImageStore {
   async bindProviderSession(
     buildId: string,
     provider: RepoImageProvider,
-    providerSessionId: string
+    providerSessionId: string,
+    providerSecretStoreId?: string | null
   ): Promise<boolean> {
     const result = await this.db
       .prepare(
-        "UPDATE repo_images SET provider_session_id = ? WHERE id = ? AND provider = ? AND status = 'building'"
+        `UPDATE repo_images
+         SET provider_session_id = ?, provider_secret_store_id = ?
+         WHERE id = ? AND provider = ? AND status = 'building'`
       )
-      .bind(providerSessionId, buildId, provider)
+      .bind(providerSessionId, providerSecretStoreId ?? null, buildId, provider)
       .run();
 
     return (result.meta?.changes ?? 0) > 0;
@@ -104,7 +109,7 @@ export class RepoImageStore {
   }): Promise<RepoImageCallbackBuild | null> {
     const build = await this.db
       .prepare(
-        `SELECT id, provider, provider_session_id, status, callback_token_hash, callback_token_expires_at, callback_token_used_at
+        `SELECT id, provider, provider_session_id, provider_secret_store_id, status, callback_token_hash, callback_token_expires_at, callback_token_used_at
          FROM repo_images WHERE id = ? AND provider = ?`
       )
       .bind(params.buildId, params.provider)
@@ -112,6 +117,7 @@ export class RepoImageStore {
         id: string;
         provider: RepoImageProvider;
         provider_session_id: string | null;
+        provider_secret_store_id: string | null;
         status: RepoImage["status"];
         callback_token_hash: string | null;
         callback_token_expires_at: number | null;
@@ -151,6 +157,7 @@ export class RepoImageStore {
       id: build.id,
       provider: build.provider,
       providerSessionId: build.provider_session_id,
+      providerSecretStoreId: build.provider_secret_store_id,
       status: build.status,
     };
   }
@@ -165,7 +172,7 @@ export class RepoImageStore {
   }): Promise<boolean> {
     const build = await this.db
       .prepare(
-        `SELECT id, provider, provider_session_id, status, callback_token_hash, callback_token_expires_at, callback_token_used_at
+        `SELECT id, provider, provider_session_id, provider_secret_store_id, status, callback_token_hash, callback_token_expires_at, callback_token_used_at
          FROM repo_images WHERE id = ? AND provider = ?`
       )
       .bind(params.buildId, params.provider)
@@ -173,6 +180,7 @@ export class RepoImageStore {
         id: string;
         provider: RepoImageProvider;
         provider_session_id: string | null;
+        provider_secret_store_id: string | null;
         status: RepoImage["status"];
         callback_token_hash: string | null;
         callback_token_expires_at: number | null;
@@ -211,12 +219,15 @@ export class RepoImageStore {
 
   async getCallbackBuild(buildId: string): Promise<RepoImageCallbackBuild | null> {
     const build = await this.db
-      .prepare("SELECT id, provider, provider_session_id, status FROM repo_images WHERE id = ?")
+      .prepare(
+        "SELECT id, provider, provider_session_id, provider_secret_store_id, status FROM repo_images WHERE id = ?"
+      )
       .bind(buildId)
       .first<{
         id: string;
         provider: RepoImageProvider;
         provider_session_id: string | null;
+        provider_secret_store_id: string | null;
         status: RepoImageBuildStatus;
       }>();
 
@@ -225,6 +236,7 @@ export class RepoImageStore {
       id: build.id,
       provider: build.provider,
       providerSessionId: build.provider_session_id,
+      providerSecretStoreId: build.provider_secret_store_id,
       status: build.status,
     };
   }

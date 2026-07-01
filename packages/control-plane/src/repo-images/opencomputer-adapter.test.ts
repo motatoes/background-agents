@@ -8,6 +8,7 @@ function createProvider(): OpenComputerSandboxProvider {
     triggerRepoImageBuild: vi.fn(async () => ({ buildId: "build-1", status: "building" })),
     takeSnapshot: vi.fn(async () => ({ success: true, imageId: "oc-checkpoint-1" })),
     deleteSandbox: vi.fn(async () => ({ success: true })),
+    deleteSecretStore: vi.fn(async () => undefined),
     deleteProviderImage: vi.fn(async () => undefined),
   } as unknown as OpenComputerSandboxProvider;
 }
@@ -93,6 +94,7 @@ describe("OpenComputerRepoImageBuildAdapter", () => {
       kind: "provider_session",
       buildId: "build-1",
       providerSessionId: "oc-session-1",
+      providerSecretStoreId: "secret-store-1",
       correlation,
     });
     await adapter.deleteImage({
@@ -101,6 +103,7 @@ describe("OpenComputerRepoImageBuildAdapter", () => {
     });
 
     expect(provider.deleteSandbox).toHaveBeenCalledWith("oc-session-1");
+    expect(provider.deleteSecretStore).toHaveBeenCalledWith("secret-store-1");
     expect(provider.deleteProviderImage).toHaveBeenCalledWith("oc-checkpoint-1", "oc-session-1");
   });
 });

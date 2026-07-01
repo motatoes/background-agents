@@ -38,6 +38,7 @@ function callbackBuild(overrides: Partial<RepoImageCallbackBuild> = {}): RepoIma
     id: "build-1",
     provider: "vercel",
     providerSessionId: "provider-session-1",
+    providerSecretStoreId: null,
     status: "building",
     ...overrides,
   };
@@ -225,7 +226,8 @@ describe("RepoImageBuildWorkflow", () => {
     expect(store.bindProviderSession).toHaveBeenCalledWith(
       expect.stringContaining("img-acme-repo-"),
       "vercel",
-      "provider-session-1"
+      "provider-session-1",
+      undefined
     );
   });
 
@@ -802,6 +804,7 @@ describe("RepoImageBuildWorkflow", () => {
       kind: "provider_session",
       buildId: "build-1",
       providerSessionId: "provider-session-1",
+      providerSecretStoreId: null,
       correlation: { request_id: "request-1", trace_id: "trace-1" },
     });
     expect(deleteImage.mock.invocationCallOrder[0]).toBeLessThan(
@@ -953,6 +956,7 @@ describe("RepoImageBuildWorkflow", () => {
       buildId: "build-1",
       kind: "provider_session",
       providerSessionId: "provider-session-1",
+      providerSecretStoreId: null,
       errorMessage: "setup failed",
       correlation: { request_id: "request-1", trace_id: "trace-1" },
     });

@@ -7,6 +7,7 @@ type RepoImageRow = {
   repo_name: string;
   provider: string;
   provider_session_id: string | null;
+  provider_secret_store_id: string | null;
   provider_image_id: string;
   base_sha: string;
   base_branch: string;
@@ -24,11 +25,11 @@ const QUERY_PATTERNS = {
   SELECT_BY_ID:
     /^SELECT repo_owner, repo_name, provider, provider_session_id, base_branch, created_at FROM repo_images WHERE id = \? AND provider = \? AND status = 'building'$/,
   UPDATE_PROVIDER_SESSION:
-    /^UPDATE repo_images SET provider_session_id = \? WHERE id = \? AND provider = \? AND status = 'building'$/,
+    /^UPDATE repo_images SET provider_session_id = \?, provider_secret_store_id = \? WHERE id = \? AND provider = \? AND status = 'building'$/,
   SELECT_CALLBACK_BUILD:
-    /^SELECT id, provider, provider_session_id, status, callback_token_hash, callback_token_expires_at, callback_token_used_at FROM repo_images WHERE id = \? AND provider = \?$/,
+    /^SELECT id, provider, provider_session_id, provider_secret_store_id, status, callback_token_hash, callback_token_expires_at, callback_token_used_at FROM repo_images WHERE id = \? AND provider = \?$/,
   SELECT_CALLBACK_BUILD_BY_ID:
-    /^SELECT id, provider, provider_session_id, status FROM repo_images WHERE id = \?$/,
+    /^SELECT id, provider, provider_session_id, provider_secret_store_id, status FROM repo_images WHERE id = \?$/,
   UPDATE_CALLBACK_USED:
     /^UPDATE repo_images SET callback_token_used_at = \? WHERE id = \? AND provider = \? AND provider_session_id = \? AND status = 'building' AND callback_token_hash = \? AND callback_token_expires_at >= \? AND callback_token_used_at IS NULL$/,
   UPDATE_FAILED_WITH_CALLBACK_TOKEN:
@@ -113,6 +114,7 @@ class FakeD1Database {
             id: row.id,
             provider: row.provider,
             provider_session_id: row.provider_session_id,
+            provider_secret_store_id: row.provider_secret_store_id,
             status: row.status,
           }
         : null;
@@ -126,6 +128,7 @@ class FakeD1Database {
             id: row.id,
             provider: row.provider,
             provider_session_id: row.provider_session_id,
+            provider_secret_store_id: row.provider_secret_store_id,
             status: row.status,
             callback_token_hash: row.callback_token_hash,
             callback_token_expires_at: row.callback_token_expires_at,
@@ -243,6 +246,7 @@ class FakeD1Database {
         repo_name: name,
         provider,
         provider_session_id: null,
+        provider_secret_store_id: null,
         base_branch: branch,
         provider_image_id: "",
         status: "building",
@@ -258,10 +262,16 @@ class FakeD1Database {
     }
 
     if (QUERY_PATTERNS.UPDATE_PROVIDER_SESSION.test(normalized)) {
-      const [providerSessionId, id, provider] = args as [string, string, string];
+      const [providerSessionId, providerSecretStoreId, id, provider] = args as [
+        string,
+        string | null,
+        string,
+        string,
+      ];
       const row = this.rows.get(id);
       if (row && row.provider === provider && row.status === "building") {
         row.provider_session_id = providerSessionId;
+        row.provider_secret_store_id = providerSecretStoreId;
         return { meta: { changes: 1 } };
       }
       return { meta: { changes: 0 } };
@@ -593,11 +603,12 @@ describe("RepoImageStore", () => {
       });
 
       await expect(
-        store.bindProviderSession("img-vercel", "vercel", "vercel-session-1")
+        store.bindProviderSession("img-vercel", "vercel", "vercel-session-1", "secret-store-1")
       ).resolves.toBe(true);
 
       const status = await store.getStatus("acme", "repo");
       expect(status[0].provider_session_id).toBe("vercel-session-1");
+      expect(status[0].provider_secret_store_id).toBe("secret-store-1");
     });
 
     it("consumes callback tokens once and rejects replays", async () => {
@@ -624,6 +635,7 @@ describe("RepoImageStore", () => {
         id: "img-vercel",
         provider: "vercel",
         providerSessionId: "vercel-session-1",
+        providerSecretStoreId: null,
         status: "building",
       });
 
@@ -722,6 +734,7 @@ describe("RepoImageStore", () => {
         repo_name: "repo",
         provider: "modal",
         provider_session_id: null,
+        provider_secret_store_id: null,
         provider_image_id: "modal-img-old",
         base_sha: "sha",
         base_branch: "main",
@@ -932,6 +945,7 @@ describe("RepoImageStore", () => {
           repo_name: "repo",
           provider: "modal",
           provider_session_id: null,
+          provider_secret_store_id: null,
           provider_image_id: "modal-img-new-race",
           base_sha: "sha-new-race",
           base_branch: "main",

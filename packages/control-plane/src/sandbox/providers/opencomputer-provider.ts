@@ -63,12 +63,16 @@ export interface TriggerOpenComputerRepoImageBuildConfig {
   userEnvVars?: Record<string, string>;
   cloneToken?: string;
   buildTimeoutSeconds?: number;
-  onProviderSessionCreated?: (providerSessionId: string) => Promise<void>;
+  onProviderSessionCreated?: (
+    providerSessionId: string,
+    providerSecretStoreId?: string | null
+  ) => Promise<void>;
 }
 
 export interface TriggerOpenComputerRepoImageBuildResult {
   buildId: string;
   status: string;
+  secretStoreId?: string;
 }
 
 export interface OpenComputerProviderConfig {
@@ -377,7 +381,7 @@ export class OpenComputerSandboxProvider implements SandboxProvider {
       providerObjectId = sandbox.id;
 
       if (config.onProviderSessionCreated) {
-        await config.onProviderSessionCreated(sandbox.id);
+        await config.onProviderSessionCreated(sandbox.id, secretStore?.id);
       }
 
       await this.client.startRuntime(sandbox.id, {
@@ -390,7 +394,7 @@ export class OpenComputerSandboxProvider implements SandboxProvider {
         sandbox_id: sandbox.id,
       });
 
-      return { buildId: config.buildId, status: "building" };
+      return { buildId: config.buildId, status: "building", secretStoreId: secretStore?.id };
     } catch (error) {
       if (providerObjectId) {
         await this.cleanupSandboxAfterFailedCreate(providerObjectId, config.buildId);
@@ -421,6 +425,15 @@ export class OpenComputerSandboxProvider implements SandboxProvider {
     } catch (error) {
       if (error instanceof OpenComputerNotFoundError) return;
       throw this.classifyError("Failed to delete OpenComputer checkpoint", error);
+    }
+  }
+
+  async deleteSecretStore(secretStoreId: string): Promise<void> {
+    try {
+      await this.client.deleteSecretStore(secretStoreId);
+    } catch (error) {
+      if (error instanceof OpenComputerNotFoundError) return;
+      throw this.classifyError("Failed to delete OpenComputer secret store", error);
     }
   }
 

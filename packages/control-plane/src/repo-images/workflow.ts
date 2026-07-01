@@ -54,7 +54,10 @@ type PlanBuildInput = Parameters<RepoImageBuildPlanner["planBuild"]>[0];
 type PlannedBuildStart = {
   adapter: RepoImageBuildFinalizer;
   start(callbacks: {
-    bindProviderSession(providerSessionId: string): Promise<void>;
+    bindProviderSession(
+      providerSessionId: string,
+      providerSecretStoreId?: string | null
+    ): Promise<void>;
   }): Promise<void>;
 };
 type FinalizedReadyResult =
@@ -176,9 +179,14 @@ export class RepoImageBuildWorkflow {
       });
 
       await start.start({
-        bindProviderSession: async (providerSessionId) => {
+        bindProviderSession: async (providerSessionId, providerSecretStoreId) => {
           providerSessionIdForCleanup = providerSessionId;
-          const bound = await this.store.bindProviderSession(buildId, provider, providerSessionId);
+          const bound = await this.store.bindProviderSession(
+            buildId,
+            provider,
+            providerSessionId,
+            providerSecretStoreId
+          );
           if (!bound) {
             throw new Error(`Failed to bind ${provider} build session`);
           }
@@ -273,6 +281,7 @@ export class RepoImageBuildWorkflow {
         provider,
         {
           ...readyCompletion,
+          providerSecretStoreId: build.providerSecretStoreId,
           correlation: ctx,
         },
         ctx
@@ -356,7 +365,11 @@ export class RepoImageBuildWorkflow {
 
     const callbackPolicy = this.callbackPolicyFor(build.provider);
     const provider = callbackPolicy.provider;
-    const failureInput = this.buildFailureInput(callbackPolicy, failure);
+    const failureInput = this.buildFailureInput(
+      callbackPolicy,
+      failure,
+      build.providerSecretStoreId
+    );
 
     if (failureInput.kind === "provider_session") {
       await this.markProviderSessionBuildFailedWithCallbackToken(
@@ -392,7 +405,8 @@ export class RepoImageBuildWorkflow {
 
   private buildFailureInput(
     callbackPolicy: RepoImageCallbackPolicy,
-    failure: FailRepoImageBuildCallback
+    failure: FailRepoImageBuildCallback,
+    providerSecretStoreId?: string | null
   ): FailRepoImageBuild {
     if (callbackPolicy.mode === "provider_session") {
       if (!failure.providerSessionId) {
@@ -402,6 +416,7 @@ export class RepoImageBuildWorkflow {
         kind: "provider_session",
         buildId: failure.buildId,
         providerSessionId: failure.providerSessionId,
+        providerSecretStoreId,
         errorMessage: failure.errorMessage,
       };
     }
@@ -993,6 +1008,7 @@ export class RepoImageBuildWorkflow {
         kind: "provider_session",
         buildId: input.buildId,
         providerSessionId: input.providerSessionId,
+        providerSecretStoreId: input.providerSecretStoreId,
         correlation: ctx,
       });
     } catch (e) {

@@ -605,7 +605,7 @@ describe("OpenComputerSandboxProvider", () => {
     expect(client.setSecret).not.toHaveBeenCalledWith(
       expect.objectContaining({ name: "OI_REPO_IMAGE_CALLBACK_SECRET" })
     );
-    expect(onProviderSessionCreated).toHaveBeenCalledWith("oc-sandbox-1");
+    expect(onProviderSessionCreated).toHaveBeenCalledWith("oc-sandbox-1", "secret-store-1");
     expect(client.startRuntime).toHaveBeenCalledWith("oc-sandbox-1", {
       OI_REPO_IMAGE_PROVIDER_SESSION_ID: "oc-sandbox-1",
     });

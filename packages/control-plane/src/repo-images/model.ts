@@ -29,5 +29,6 @@ export interface RepoImageCallbackBuild {
   id: string;
   provider: RepoImageProvider;
   providerSessionId: string | null;
+  providerSecretStoreId: string | null;
   status: RepoImageBuildStatus;
 }
