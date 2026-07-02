@@ -7,6 +7,7 @@ type RepoImageRow = {
   repo_name: string;
   provider: string;
   provider_session_id: string | null;
+  provider_secret_store_id: string | null;
   provider_image_id: string;
   base_sha: string;
   base_branch: string;
@@ -22,19 +23,19 @@ type RepoImageRow = {
 const QUERY_PATTERNS = {
   INSERT_BUILD: /^INSERT INTO repo_images/,
   SELECT_BY_ID:
-    /^SELECT repo_owner, repo_name, provider, provider_session_id, base_branch, created_at FROM repo_images WHERE id = \? AND provider = \? AND status = 'building'$/,
+    /^SELECT repo_owner, repo_name, provider, provider_session_id, provider_secret_store_id, base_branch, created_at FROM repo_images WHERE id = \? AND provider = \? AND status = 'building'$/,
   UPDATE_PROVIDER_SESSION:
-    /^UPDATE repo_images SET provider_session_id = \? WHERE id = \? AND provider = \? AND status = 'building'$/,
+    /^UPDATE repo_images SET provider_session_id = \?, provider_secret_store_id = \? WHERE id = \? AND provider = \? AND status = 'building'$/,
   SELECT_CALLBACK_BUILD:
-    /^SELECT id, provider, provider_session_id, status, callback_token_hash, callback_token_expires_at, callback_token_used_at FROM repo_images WHERE id = \? AND provider = \?$/,
+    /^SELECT id, provider, provider_session_id, provider_secret_store_id, status, callback_token_hash, callback_token_expires_at, callback_token_used_at FROM repo_images WHERE id = \? AND provider = \?$/,
   SELECT_CALLBACK_BUILD_BY_ID:
-    /^SELECT id, provider, provider_session_id, status FROM repo_images WHERE id = \?$/,
+    /^SELECT id, provider, provider_session_id, provider_secret_store_id, status FROM repo_images WHERE id = \?$/,
   UPDATE_CALLBACK_USED:
     /^UPDATE repo_images SET callback_token_used_at = \? WHERE id = \? AND provider = \? AND provider_session_id = \? AND status = 'building' AND callback_token_hash = \? AND callback_token_expires_at >= \? AND callback_token_used_at IS NULL$/,
   UPDATE_FAILED_WITH_CALLBACK_TOKEN:
     /^UPDATE repo_images SET status = 'failed', error_message = \?, callback_token_used_at = \? WHERE id = \? AND provider = \? AND provider_session_id = \? AND status = 'building' AND callback_token_hash = \? AND callback_token_expires_at >= \? AND callback_token_used_at IS NULL$/,
   SELECT_READY_FOR_REPO:
-    /^SELECT id, provider_image_id, provider_session_id FROM repo_images WHERE repo_owner = \? AND repo_name = \? AND provider = \? AND base_branch = \? AND status = 'ready' AND id <> \? AND \( created_at < \? OR \(created_at = \? AND id < \?\) \) ORDER BY created_at DESC, id DESC$/,
+    /^SELECT id, provider_image_id, provider_session_id, provider_secret_store_id FROM repo_images WHERE repo_owner = \? AND repo_name = \? AND provider = \? AND base_branch = \? AND status = 'ready' AND id <> \? AND \( created_at < \? OR \(created_at = \? AND id < \?\) \) ORDER BY created_at DESC, id DESC$/,
   UPDATE_READY:
     /^UPDATE repo_images SET status = 'ready', provider_image_id = \?, base_sha = \?, build_duration_seconds = \? WHERE id = \? AND provider = \? AND status = 'building' AND NOT EXISTS \( SELECT 1 FROM repo_images newer WHERE newer\.repo_owner = \? AND newer\.repo_name = \? AND newer\.provider = \? AND newer\.base_branch = \? AND newer\.status = 'ready' AND \( newer\.created_at > \? OR \(newer\.created_at = \? AND newer\.id > \?\) \) \)$/,
   UPDATE_COMPLETED_SUPERSEDED:
@@ -99,6 +100,7 @@ class FakeD1Database {
             repo_name: row.repo_name,
             provider: row.provider,
             provider_session_id: row.provider_session_id,
+            provider_secret_store_id: row.provider_secret_store_id,
             base_branch: row.base_branch,
             created_at: row.created_at,
           }
@@ -196,6 +198,7 @@ class FakeD1Database {
           id: row.id,
           provider_image_id: row.provider_image_id,
           provider_session_id: row.provider_session_id,
+          provider_secret_store_id: row.provider_secret_store_id,
         }));
     }
 
@@ -243,6 +246,7 @@ class FakeD1Database {
         repo_name: name,
         provider,
         provider_session_id: null,
+        provider_secret_store_id: null,
         base_branch: branch,
         provider_image_id: "",
         status: "building",
@@ -258,10 +262,16 @@ class FakeD1Database {
     }
 
     if (QUERY_PATTERNS.UPDATE_PROVIDER_SESSION.test(normalized)) {
-      const [providerSessionId, id, provider] = args as [string, string, string];
+      const [providerSessionId, providerSecretStoreId, id, provider] = args as [
+        string,
+        string | null,
+        string,
+        string,
+      ];
       const row = this.rows.get(id);
       if (row && row.provider === provider && row.status === "building") {
         row.provider_session_id = providerSessionId;
+        row.provider_secret_store_id = providerSecretStoreId;
         return { meta: { changes: 1 } };
       }
       return { meta: { changes: 0 } };
@@ -722,6 +732,7 @@ describe("RepoImageStore", () => {
         repo_name: "repo",
         provider: "modal",
         provider_session_id: null,
+        provider_secret_store_id: null,
         provider_image_id: "modal-img-old",
         base_sha: "sha",
         base_branch: "main",
@@ -932,6 +943,7 @@ describe("RepoImageStore", () => {
           repo_name: "repo",
           provider: "modal",
           provider_session_id: null,
+          provider_secret_store_id: null,
           provider_image_id: "modal-img-new-race",
           base_sha: "sha-new-race",
           base_branch: "main",

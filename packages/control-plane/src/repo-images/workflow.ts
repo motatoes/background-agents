@@ -54,7 +54,10 @@ type PlanBuildInput = Parameters<RepoImageBuildPlanner["planBuild"]>[0];
 type PlannedBuildStart = {
   adapter: RepoImageBuildFinalizer;
   start(callbacks: {
-    bindProviderSession(providerSessionId: string): Promise<void>;
+    bindProviderSession(
+      providerSessionId: string,
+      providerSecretStoreId?: string | null
+    ): Promise<void>;
   }): Promise<void>;
 };
 type FinalizedReadyResult =
@@ -74,6 +77,7 @@ interface ReadyBuildCompletion {
   kind: "provider_image" | "provider_session";
   buildId: string;
   providerSessionId?: string;
+  providerSecretStoreId?: string | null;
   baseSha: string;
   buildDurationMs: number;
 }
@@ -165,6 +169,7 @@ export class RepoImageBuildWorkflow {
     }
 
     let providerSessionIdForCleanup: string | null = null;
+    let providerSecretStoreIdForCleanup: string | null = null;
     try {
       await this.store.registerBuild({
         id: buildId,
@@ -176,9 +181,15 @@ export class RepoImageBuildWorkflow {
       });
 
       await start.start({
-        bindProviderSession: async (providerSessionId) => {
+        bindProviderSession: async (providerSessionId, providerSecretStoreId) => {
           providerSessionIdForCleanup = providerSessionId;
-          const bound = await this.store.bindProviderSession(buildId, provider, providerSessionId);
+          providerSecretStoreIdForCleanup = providerSecretStoreId ?? null;
+          const bound = await this.store.bindProviderSession(
+            buildId,
+            provider,
+            providerSessionId,
+            providerSecretStoreId
+          );
           if (!bound) {
             throw new Error(`Failed to bind ${provider} build session`);
           }
@@ -201,6 +212,7 @@ export class RepoImageBuildWorkflow {
             kind: "provider_session",
             buildId,
             providerSessionId: providerSessionIdForCleanup,
+            providerSecretStoreId: providerSecretStoreIdForCleanup,
             errorMessage: errorMessage(e),
             correlation: ctx,
           })
@@ -273,6 +285,7 @@ export class RepoImageBuildWorkflow {
         provider,
         {
           ...readyCompletion,
+          providerSecretStoreId: build.providerSecretStoreId,
           correlation: ctx,
         },
         ctx
@@ -357,6 +370,9 @@ export class RepoImageBuildWorkflow {
     const callbackPolicy = this.callbackPolicyFor(build.provider);
     const provider = callbackPolicy.provider;
     const failureInput = this.buildFailureInput(callbackPolicy, failure);
+    if (failureInput.kind === "provider_session") {
+      failureInput.providerSecretStoreId = build.providerSecretStoreId;
+    }
 
     if (failureInput.kind === "provider_session") {
       await this.markProviderSessionBuildFailedWithCallbackToken(
@@ -993,6 +1009,7 @@ export class RepoImageBuildWorkflow {
         kind: "provider_session",
         buildId: input.buildId,
         providerSessionId: input.providerSessionId,
+        providerSecretStoreId: input.providerSecretStoreId,
         correlation: ctx,
       });
     } catch (e) {

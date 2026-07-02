@@ -12,6 +12,7 @@ export type RepoImageBuildStatus = "building" | "ready" | "failed" | "superseded
 export interface RepoImageProviderImageRef {
   providerImageId: string;
   providerSessionId?: string | null;
+  providerSecretStoreId?: string | null;
 }
 
 export interface SupersededRepoImage {
@@ -29,5 +30,6 @@ export interface RepoImageCallbackBuild {
   id: string;
   provider: RepoImageProvider;
   providerSessionId: string | null;
+  providerSecretStoreId: string | null;
   status: RepoImageBuildStatus;
 }

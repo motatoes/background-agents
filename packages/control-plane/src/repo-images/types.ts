@@ -95,7 +95,10 @@ export type PlannedRepoImageBuild =
 
 /** Lets provider-session adapters bind the provider sandbox id before the runtime launches. */
 export interface RepoImageBuildStartCallbacks {
-  bindProviderSession(providerSessionId: string): Promise<void>;
+  bindProviderSession(
+    providerSessionId: string,
+    providerSecretStoreId?: string | null
+  ): Promise<void>;
 }
 
 export interface CompleteProviderImageBuild {
@@ -110,6 +113,7 @@ export interface CompleteProviderSessionBuild {
   kind: "provider_session";
   buildId: string;
   providerSessionId: string;
+  providerSecretStoreId?: string | null;
   baseSha: string;
   buildDurationMs: number;
 }
@@ -140,6 +144,7 @@ export interface FailProviderSessionBuild {
   kind: "provider_session";
   buildId: string;
   providerSessionId: string;
+  providerSecretStoreId?: string | null;
   errorMessage: string;
 }
 
@@ -160,6 +165,7 @@ export interface CleanupCompletedProviderSessionBuildInput {
   kind: "provider_session";
   buildId: string;
   providerSessionId: string;
+  providerSecretStoreId?: string | null;
   correlation: CorrelationContext;
 }
 

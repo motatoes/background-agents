@@ -8,6 +8,7 @@ function createProvider(): OpenComputerSandboxProvider {
     triggerRepoImageBuild: vi.fn(async () => ({ buildId: "build-1", status: "building" })),
     takeSnapshot: vi.fn(async () => ({ success: true, imageId: "oc-checkpoint-1" })),
     deleteSandbox: vi.fn(async () => ({ success: true })),
+    deleteSecretStore: vi.fn(async () => undefined),
     deleteProviderImage: vi.fn(async () => undefined),
   } as unknown as OpenComputerSandboxProvider;
 }
@@ -84,7 +85,7 @@ describe("OpenComputerRepoImageBuildAdapter", () => {
     });
   });
 
-  it("cleans up completed build sandboxes and deletes checkpoints with session context", async () => {
+  it("cleans up completed build sandboxes and keeps active image secret stores", async () => {
     const provider = createProvider();
     const adapter = new OpenComputerRepoImageBuildAdapter(provider);
     const correlation = { request_id: "request-1", trace_id: "trace-1" };
@@ -95,12 +96,26 @@ describe("OpenComputerRepoImageBuildAdapter", () => {
       providerSessionId: "oc-session-1",
       correlation,
     });
+
+    expect(provider.deleteSandbox).toHaveBeenCalledWith("oc-session-1");
+    expect(provider.deleteSecretStore).not.toHaveBeenCalled();
+  });
+
+  it("deletes superseded checkpoints with their secret stores", async () => {
+    const provider = createProvider();
+    const adapter = new OpenComputerRepoImageBuildAdapter(provider);
+    const correlation = { request_id: "request-1", trace_id: "trace-1" };
+
     await adapter.deleteImage({
-      image: { providerImageId: "oc-checkpoint-1", providerSessionId: "oc-session-1" },
+      image: {
+        providerImageId: "oc-checkpoint-1",
+        providerSessionId: "oc-session-1",
+        providerSecretStoreId: "secret-store-1",
+      },
       correlation,
     });
 
-    expect(provider.deleteSandbox).toHaveBeenCalledWith("oc-session-1");
     expect(provider.deleteProviderImage).toHaveBeenCalledWith("oc-checkpoint-1", "oc-session-1");
+    expect(provider.deleteSecretStore).toHaveBeenCalledWith("secret-store-1");
   });
 });

@@ -78,12 +78,22 @@ export class OpenComputerRepoImageBuildAdapter implements RepoImageBuildAdapter<
   async cleanupFailedBuild(input: FailedRepoImageBuildInput): Promise<void> {
     if (input.kind !== "provider_session") return;
     await this.deleteBuildSandbox(input.buildId, input.providerSessionId, input.correlation);
+    await this.deleteBuildSecretStore(
+      input.buildId,
+      input.providerSecretStoreId,
+      input.correlation
+    );
   }
 
   async deleteImage(input: DeleteRepoImageInput): Promise<void> {
     await this.provider.deleteProviderImage(
       input.image.providerImageId,
       input.image.providerSessionId
+    );
+    await this.deleteBuildSecretStore(
+      input.image.providerImageId,
+      input.image.providerSecretStoreId,
+      input.correlation
     );
   }
 
@@ -102,6 +112,25 @@ export class OpenComputerRepoImageBuildAdapter implements RepoImageBuildAdapter<
         error: error instanceof Error ? error.message : String(error),
         request_id: correlation.request_id,
         trace_id: correlation.trace_id,
+      });
+    }
+  }
+
+  private async deleteBuildSecretStore(
+    buildId: string,
+    providerSecretStoreId: string | null | undefined,
+    correlation: FinalizeRepoImageBuildInput["correlation"] | undefined
+  ): Promise<void> {
+    if (!providerSecretStoreId) return;
+    try {
+      await this.provider.deleteSecretStore(providerSecretStoreId);
+    } catch (error) {
+      logger.warn("repo_image.opencomputer_secret_store_cleanup_failed", {
+        build_id: buildId,
+        provider_secret_store_id: providerSecretStoreId,
+        error: error instanceof Error ? error.message : String(error),
+        request_id: correlation?.request_id,
+        trace_id: correlation?.trace_id,
       });
     }
   }

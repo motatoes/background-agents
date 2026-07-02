@@ -29,6 +29,7 @@ interface RepoImageRow {
   repo_name: string;
   provider: RepoImageProvider;
   provider_session_id: string | null;
+  provider_secret_store_id: string | null;
   base_branch: string;
   provider_image_id: string;
   status: "building" | "ready" | "failed" | "superseded";
@@ -47,7 +48,7 @@ function createRepoImageDb(row: RepoImageRow): D1Database {
       first: async () => {
         if (
           sql.includes(
-            "SELECT id, provider, provider_session_id, status FROM repo_images WHERE id = ?"
+            "SELECT id, provider, provider_session_id, provider_secret_store_id, status FROM repo_images WHERE id = ?"
           )
         ) {
           return row.id === args[0]
@@ -55,6 +56,7 @@ function createRepoImageDb(row: RepoImageRow): D1Database {
                 id: row.id,
                 provider: row.provider,
                 provider_session_id: row.provider_session_id,
+                provider_secret_store_id: row.provider_secret_store_id,
                 status: row.status,
               }
             : null;
@@ -65,6 +67,7 @@ function createRepoImageDb(row: RepoImageRow): D1Database {
                 id: row.id,
                 provider: row.provider,
                 provider_session_id: row.provider_session_id,
+                provider_secret_store_id: row.provider_secret_store_id,
                 status: row.status,
                 callback_token_hash: row.callback_token_hash,
                 callback_token_expires_at: row.callback_token_expires_at,
@@ -79,6 +82,7 @@ function createRepoImageDb(row: RepoImageRow): D1Database {
                 repo_name: row.repo_name,
                 provider: row.provider,
                 provider_session_id: row.provider_session_id,
+                provider_secret_store_id: row.provider_secret_store_id,
                 base_branch: row.base_branch,
                 created_at: row.created_at,
               }
@@ -179,6 +183,7 @@ describe("repo image routes", () => {
       repo_name: "repo",
       provider: "vercel",
       provider_session_id: "vercel-session-1",
+      provider_secret_store_id: null,
       base_branch: "main",
       provider_image_id: "",
       status: "building",
@@ -249,6 +254,7 @@ describe("repo image routes", () => {
       repo_name: "repo",
       provider: "vercel",
       provider_session_id: "vercel-session-1",
+      provider_secret_store_id: null,
       base_branch: "main",
       provider_image_id: "",
       status: "building",
@@ -295,6 +301,7 @@ describe("repo image routes", () => {
         repo_name: "repo",
         provider: "vercel",
         provider_session_id: "vercel-session-1",
+        provider_secret_store_id: null,
         base_branch: "main",
         provider_image_id: "",
         status: "building",
@@ -334,6 +341,7 @@ describe("repo image routes", () => {
       repo_name: "repo",
       provider: "vercel",
       provider_session_id: "vercel-session-1",
+      provider_secret_store_id: null,
       base_branch: "main",
       provider_image_id: "",
       status: "building",

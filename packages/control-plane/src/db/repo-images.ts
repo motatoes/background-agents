@@ -83,13 +83,14 @@ export class RepoImageStore {
   async bindProviderSession(
     buildId: string,
     provider: RepoImageProvider,
-    providerSessionId: string
+    providerSessionId: string,
+    providerSecretStoreId?: string | null
   ): Promise<boolean> {
     const result = await this.db
       .prepare(
-        "UPDATE repo_images SET provider_session_id = ? WHERE id = ? AND provider = ? AND status = 'building'"
+        "UPDATE repo_images SET provider_session_id = ?, provider_secret_store_id = ? WHERE id = ? AND provider = ? AND status = 'building'"
       )
-      .bind(providerSessionId, buildId, provider)
+      .bind(providerSessionId, providerSecretStoreId ?? null, buildId, provider)
       .run();
 
     return (result.meta?.changes ?? 0) > 0;
@@ -104,7 +105,7 @@ export class RepoImageStore {
   }): Promise<RepoImageCallbackBuild | null> {
     const build = await this.db
       .prepare(
-        `SELECT id, provider, provider_session_id, status, callback_token_hash, callback_token_expires_at, callback_token_used_at
+        `SELECT id, provider, provider_session_id, provider_secret_store_id, status, callback_token_hash, callback_token_expires_at, callback_token_used_at
          FROM repo_images WHERE id = ? AND provider = ?`
       )
       .bind(params.buildId, params.provider)
@@ -112,6 +113,7 @@ export class RepoImageStore {
         id: string;
         provider: RepoImageProvider;
         provider_session_id: string | null;
+        provider_secret_store_id: string | null;
         status: RepoImage["status"];
         callback_token_hash: string | null;
         callback_token_expires_at: number | null;
@@ -151,6 +153,7 @@ export class RepoImageStore {
       id: build.id,
       provider: build.provider,
       providerSessionId: build.provider_session_id,
+      providerSecretStoreId: build.provider_secret_store_id,
       status: build.status,
     };
   }
@@ -165,7 +168,7 @@ export class RepoImageStore {
   }): Promise<boolean> {
     const build = await this.db
       .prepare(
-        `SELECT id, provider, provider_session_id, status, callback_token_hash, callback_token_expires_at, callback_token_used_at
+        `SELECT id, provider, provider_session_id, provider_secret_store_id, status, callback_token_hash, callback_token_expires_at, callback_token_used_at
          FROM repo_images WHERE id = ? AND provider = ?`
       )
       .bind(params.buildId, params.provider)
@@ -173,6 +176,7 @@ export class RepoImageStore {
         id: string;
         provider: RepoImageProvider;
         provider_session_id: string | null;
+        provider_secret_store_id: string | null;
         status: RepoImage["status"];
         callback_token_hash: string | null;
         callback_token_expires_at: number | null;
@@ -211,12 +215,15 @@ export class RepoImageStore {
 
   async getCallbackBuild(buildId: string): Promise<RepoImageCallbackBuild | null> {
     const build = await this.db
-      .prepare("SELECT id, provider, provider_session_id, status FROM repo_images WHERE id = ?")
+      .prepare(
+        "SELECT id, provider, provider_session_id, provider_secret_store_id, status FROM repo_images WHERE id = ?"
+      )
       .bind(buildId)
       .first<{
         id: string;
         provider: RepoImageProvider;
         provider_session_id: string | null;
+        provider_secret_store_id: string | null;
         status: RepoImageBuildStatus;
       }>();
 
@@ -225,6 +232,7 @@ export class RepoImageStore {
       id: build.id,
       provider: build.provider,
       providerSessionId: build.provider_session_id,
+      providerSecretStoreId: build.provider_secret_store_id,
       status: build.status,
     };
   }
@@ -238,7 +246,7 @@ export class RepoImageStore {
   ): Promise<MarkRepoImageReadyResult> {
     const build = await this.db
       .prepare(
-        "SELECT repo_owner, repo_name, provider, provider_session_id, base_branch, created_at FROM repo_images WHERE id = ? AND provider = ? AND status = 'building'"
+        "SELECT repo_owner, repo_name, provider, provider_session_id, provider_secret_store_id, base_branch, created_at FROM repo_images WHERE id = ? AND provider = ? AND status = 'building'"
       )
       .bind(buildId, provider)
       .first<{
@@ -246,6 +254,7 @@ export class RepoImageStore {
         repo_name: string;
         provider: RepoImageProvider;
         provider_session_id: string | null;
+        provider_secret_store_id: string | null;
         base_branch: string;
         created_at: number;
       }>();
@@ -295,6 +304,7 @@ export class RepoImageStore {
           provider,
           providerImageId,
           providerSessionId: build.provider_session_id,
+          providerSecretStoreId: build.provider_secret_store_id,
           baseSha,
           buildDurationMs,
           repoOwner: build.repo_owner,
@@ -307,7 +317,7 @@ export class RepoImageStore {
 
     const superseded = await this.db
       .prepare(
-        `SELECT id, provider_image_id, provider_session_id FROM repo_images
+        `SELECT id, provider_image_id, provider_session_id, provider_secret_store_id FROM repo_images
          WHERE repo_owner = ?
            AND repo_name = ?
            AND provider = ?
@@ -330,13 +340,21 @@ export class RepoImageStore {
         build.created_at,
         buildId
       )
-      .all<{ id: string; provider_image_id: string; provider_session_id: string | null }>();
+      .all<{
+        id: string;
+        provider_image_id: string;
+        provider_session_id: string | null;
+        provider_secret_store_id: string | null;
+      }>();
 
     const supersededImages: SupersededRepoImage[] = (superseded.results || []).map((image) => ({
       repoImageId: image.id,
       image: {
         providerImageId: image.provider_image_id,
         providerSessionId: image.provider_session_id,
+        ...(image.provider_secret_store_id
+          ? { providerSecretStoreId: image.provider_secret_store_id }
+          : {}),
       },
     }));
 
@@ -363,6 +381,7 @@ export class RepoImageStore {
     provider: RepoImageProvider;
     providerImageId: string;
     providerSessionId: string | null;
+    providerSecretStoreId: string | null;
     baseSha: string;
     buildDurationMs: number;
     repoOwner: string;
@@ -413,6 +432,9 @@ export class RepoImageStore {
         image: {
           providerImageId: params.providerImageId,
           providerSessionId: params.providerSessionId,
+          ...(params.providerSecretStoreId
+            ? { providerSecretStoreId: params.providerSecretStoreId }
+            : {}),
         },
       },
     };

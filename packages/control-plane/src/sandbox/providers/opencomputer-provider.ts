@@ -424,6 +424,15 @@ export class OpenComputerSandboxProvider implements SandboxProvider {
     }
   }
 
+  async deleteSecretStore(secretStoreId: string): Promise<void> {
+    try {
+      await this.client.deleteSecretStore(secretStoreId);
+    } catch (error) {
+      if (error instanceof OpenComputerNotFoundError) return;
+      throw this.classifyError("Failed to delete OpenComputer secret store", error);
+    }
+  }
+
   private async buildRuntimeEnvironment(
     config: CreateSandboxConfig | RestoreConfig,
     mode: {
